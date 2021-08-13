@@ -1,0 +1,16 @@
+{
+  "name": "tdt-lambda",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node -e \"(async () => console.log(await require('./index').handler({'num1':5, 'num2':10})))();\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@turf/turf": "^6.5.0",
+    "aws-sdk": "^2.966.0",
+    "node-fetch": "^2.6.1"
+  }
+}
