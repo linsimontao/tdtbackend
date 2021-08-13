@@ -6,6 +6,15 @@ const turf = require('@turf/turf');
 const ptList100 = course100.features.map(pt => pt.geometry.coordinates);
 const ls100 = turf.lineString(ptList100);
 
+// define turn-back line and start index from ls100
+const t2 = require('./T2.json');
+const t2Length = turf.length(t2, {units: 'kilometers'});
+const t2EntryPointIndex = 3997;
+const beforeT2 = turf.lineString(ls100.coordinates.slice(0, t2EntryPointIndex + 1));
+const t2EntryLocation = turf.length(beforeT2, {units: 'kilometers'});
+
+var playerPositionMap = new Map();
+
 // local test code
 //const playersRaw = require('./players-location');
 
@@ -96,6 +105,59 @@ const processPlayers = (playersRaw) => {
         return player;
     })
 
+    // turn-back line correction
+    if (playerPositionMap.size() > 0) {
+        corrected = corrected.map(player => {
+            // ignore players who are away from turn-back line
+            if (turf.pointToLineDistance(player.geometry.coordinates, t2) > 0) {
+                return player;
+            }
+            // ignore players whos's last point is not recorded
+            if (!playerPositionMap.has(player.properties.player_id)) {
+                return player;
+            }
+            lastPosition = playerPositionMap.get(player.properties.player_id);
+            // players'location, who are on the turn-back line
+            offsetLocation = turf.nearestPointOnLine(t2, player.geometry.coordinates);
+            nearLocation = beforeT2 + offsetLocation.properties.location;
+            farLocation = beforeT2 + (t2Length - offsetLocation.properties.location);
+
+            // see https://docs.google.com/drawings/d/e/2PACX-1vQNEMbJTivqtWgfX8hm6hqAARZR-p53FpZ5Ud5Wktc17_AAMgJ8HCB5M8JdX9HPA5dtbAI9JMzTkLFC/pub?w=960&h=720
+            if (nearLocation >= lastPosition.properties.location) {
+                // p3-a
+                return {
+                    "type": "Feature",
+                    "properties": {
+                        ...player.properties,
+                        distance: nearLocation
+                    },
+                    "geometry": {
+                        "coordinates": diff.geometry.coordinates,
+                        "type": "Point"
+                    }
+                }
+            }
+
+            if (farLocation >= lastPosition.properties.location) {
+                // p3-b
+                return {
+                    "type": "Feature",
+                    "properties": {
+                        ...player.properties,
+                        distance: farLocation
+                    },
+                    "geometry": {
+                        "coordinates": diff.geometry.coordinates,
+                        "type": "Point"
+                    }
+                }
+            }
+
+            // p3-c, should be ignored
+            return player;
+        })
+    }
+
     // use this timestamp to correct location w/ Dummy data
     // will be removed after real data received
     const serverTime = new Date('2019-09-15 14:10:00+09:00');
@@ -117,7 +179,7 @@ const processPlayers = (playersRaw) => {
             const diffDist = (speed * diffSec) / 1000;
             // predict distance from start, unit 
             const predictDistance = player.properties.distance + diffDist
-            return {
+            const predicted = {
                 "type": "Feature",
                 "properties": {
                     ...player.properties,
@@ -130,6 +192,10 @@ const processPlayers = (playersRaw) => {
                 },
                 "geometry": player.geometry
             }
+
+            // update player's position map for turn-back line correction
+            playerPositionMap.set(playerPositionMap.properties.player_id, predicted);
+            return predicted;
         }
         //no update if player away from course > 1km
         return {
