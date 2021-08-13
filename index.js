@@ -13,6 +13,13 @@ const t2EntryPointIndex = 3997;
 const beforeT2 = turf.lineString(ls100.coordinates.slice(0, t2EntryPointIndex + 1));
 const t2EntryLocation = turf.length(beforeT2, {units: 'kilometers'});
 
+// define s3 buckets
+const fs = require('fs');
+const lastPlayerPositionBucket = 'dev-last-player-position';
+const finalPlayerPositionBucket = 'dev.realtimemap.jp';
+const lastPlayerPositionFile = 'last-position.json';
+const finalPlayerPositionFile = 'players-locations.json';
+
 var playerPositionMap = new Map();
 
 // local test code
@@ -28,21 +35,35 @@ const main = async (evt) => {
             // local test code
             // json = playersRaw;
 
+            await download(lastPlayerPositionBucket, lastPlayerPositionFile);
+            let obj = fs.readFileSync('./' + lastPlayerPositionFile);
+            playerPositionMap = new Map(Object.entries(obj));
+
             const processed = processPlayers(json);
-            return upload(processed);
+            return upload(processed, finalPlayerPositionBucket, finalPlayerPositionFile)
+                .then(data => {
+                    // update player's position map for turn-back line correction
+                    data.map(player => {
+                        playerPositionMap.set(player.properties.player_id, player);
+                    });
+                    upload(Object.fromEntries(playerPositionMap), lastPlayerPositionBucket, lastPlayerPositionFile);
+                })
+                .catch(error => {
+                    console.log('Failed to upload to S3: ', error);
+                });
         }
         return response;
     }
     return response;
 }
 
-const upload = async (json) => {
+const upload = async (json, bucket, filename) => {
     const params = {
         ACL: 'public-read',
         Body: JSON.stringify(json),
         ContentType: 'text/html',
-        Bucket: 'dev.realtimemap.jp',
-        Key: 'players-locations.json'
+        Bucket: bucket,
+        Key: filename
     }
 
     return await new Promise((resolve, reject) => {
@@ -55,11 +76,47 @@ const upload = async (json) => {
     })
 }
 
+const download = async (bucket, filename) => {
+    const params = {
+        Bucket: bucket,
+        Key: filename,
+    };
+
+    return await new Promise((resolve, reject) => {
+        let error = null;
+        const writeStream = fs.createWriteStream('./' + lastPlayerPositionFile);
+        s3.getObject(params)
+          .createReadStream()
+          .on('error', (err) => {
+              console.error('Failed to read object from S3: ', error);
+              error = err;
+              writeStream.end();
+          })
+          .pipe(writeStream)
+          .on('error', (err) => {
+              console.error('Failed to write file to local: ', error);
+              error = err;
+              writeStream.end();
+          })
+          .on('close', () => {
+              if (error) {
+                  reject(error);
+                  return;
+              }
+              resolve();
+          })
+    });
+}
+
 const fetchPlayers = async () => {
     const load_url = "https://cycling-st.demo.cycling.pssol.jp/api/mapbox/get_players_location"
     const headers = { 'API_TOKEN': 'CywNKSJSA22YJH7664EPUfrKmL9LFKEZye_w_e3QAXC5G8fSSThp9yF9RHYKjnc95XChwdi4n7PNz8iE55FsipkZJ9DRmYA8i293' }
     const response = await fetch(load_url, { headers: headers });
     return response;
+}
+
+const fetchLastPositions = async () => {
+
 }
 
 const processPlayers = (playersRaw) => {
@@ -179,7 +236,7 @@ const processPlayers = (playersRaw) => {
             const diffDist = (speed * diffSec) / 1000;
             // predict distance from start, unit 
             const predictDistance = player.properties.distance + diffDist
-            const predicted = {
+            return {
                 "type": "Feature",
                 "properties": {
                     ...player.properties,
@@ -192,10 +249,6 @@ const processPlayers = (playersRaw) => {
                 },
                 "geometry": player.geometry
             }
-
-            // update player's position map for turn-back line correction
-            playerPositionMap.set(playerPositionMap.properties.player_id, predicted);
-            return predicted;
         }
         //no update if player away from course > 1km
         return {
