@@ -35,7 +35,7 @@ const main = async (evt) => {
             // local test code
             // json = playersRaw;
 
-            await download(lastPlayerPositionBucket, lastPlayerPositionFile);
+            download(lastPlayerPositionBucket, lastPlayerPositionFile);
             let obj = fs.readFileSync('./' + lastPlayerPositionFile);
             playerPositionMap = new Map(Object.entries(obj));
 
