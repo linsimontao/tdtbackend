@@ -1,30 +1,32 @@
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 const fetch = require('node-fetch');
-const course100 = require('./Course100.json');
+//const course100 = require('./Course100.json');
+const courseTokyo = require('./CourseTokyo.json');
 const turf = require('@turf/turf');
-const ptList100 = course100.features.map(pt => pt.geometry.coordinates);
+//const ptList100 = course100.features.map(pt => pt.geometry.coordinates);
+const ptList100 = courseTokyo.features.map(pt => pt.geometry.coordinates);
 const ls100 = turf.lineString(ptList100);
 
 // local test code
-//const playersRaw = require('./players-location');
+const playersRaw = require('./players-location');
 
 const main = async (evt) => {
-    const response = await fetchPlayers();
-    if (response.status === 200) {
-        const json = await response.json();
-        console.log('get data from pss', json);
-        if (json.result_code == '0') {
+    // const response = await fetchPlayers();
+    // if (response.status === 200) {
+    //     const json = await response.json();
+    //     console.log('get data from pss', json);
+    //     if (json.result_code == '0') {
 
             // local test code
-            // json = playersRaw;
+            json = playersRaw;
 
             const processed = processPlayers(json);
             return upload(processed);
-        }
-        return response;
-    }
-    return response;
+    //     }
+    //     return response;
+    // }
+    // return response;
 }
 
 const upload = async (json) => {
@@ -98,7 +100,7 @@ const processPlayers = (playersRaw) => {
 
     // use this timestamp to correct location w/ Dummy data
     // will be removed after real data received
-    const serverTime = new Date('2019-09-15 14:10:00+09:00');
+    const serverTime = new Date('2021-08-16 15:27:00+09:00');
 
     const nowString = Date().toLocaleString();
     const nowTS = Date.now();
