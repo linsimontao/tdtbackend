@@ -1,15 +1,17 @@
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 const fetch = require('node-fetch');
-const course100 = require('./Course100.json');
 const turf = require('@turf/turf');
+const dataPath = 'tokyo';
+
+const course100 = require('./' + dataPath + '/Course100.json');
 const ptList100 = course100.features.map(pt => pt.geometry.coordinates);
 const ls100 = turf.lineString(ptList100);
 
 // define turn-back line and start index from ls100
-const t2 = require('./T2.json');
+const t2 = require('./' + dataPath + '/T2.json');
 const t2Length = turf.length(t2, {units: 'kilometers'});
-const t2EntryPointIndex = 3997;
+const t2EntryPointIndex = (dataPath == 'tokyo') ? 342 : 3997;
 const beforeT2 = turf.lineString(ls100.coordinates.slice(0, t2EntryPointIndex + 1));
 const t2EntryLocation = turf.length(beforeT2, {units: 'kilometers'});
 
