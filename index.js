@@ -37,9 +37,13 @@ const main = async (evt) => {
             // local test code
             // json = playersRaw;
 
-            download(lastPlayerPositionBucket, lastPlayerPositionFile);
-            let obj = fs.readFileSync('./' + lastPlayerPositionFile);
-            playerPositionMap = new Map(Object.entries(obj));
+            download(lastPlayerPositionBucket, lastPlayerPositionFile)
+                .then(data => {
+                    playerPositionMap = new Map(Object.entries(data));
+                })
+                .catch(error => {
+                    console.log('Failed download last player position file from S3: ', error);
+                });
 
             const processed = processPlayers(json);
             return upload(processed, finalPlayerPositionBucket, finalPlayerPositionFile)
@@ -86,28 +90,13 @@ const download = async (bucket, filename) => {
 
     return await new Promise((resolve, reject) => {
         let error = null;
-        const writeStream = fs.createWriteStream('./' + lastPlayerPositionFile);
-        s3.getObject(params)
-          .createReadStream()
-          .on('error', (err) => {
-              console.error('Failed to read object from S3: ', error);
-              error = err;
-              writeStream.end();
-          })
-          .pipe(writeStream)
-          .on('error', (err) => {
-              console.error('Failed to write file to local: ', error);
-              error = err;
-              writeStream.end();
-          })
-          .on('close', () => {
-              if (error) {
-                  reject(error);
-                  return;
-              }
-              resolve();
-          })
-    });
+        s3.getObject(params, (err, results) => {
+            if (err)
+                reject(err);
+            else
+                resolve(results);
+        })
+    })
 }
 
 const fetchPlayers = async () => {
