@@ -13,7 +13,7 @@ const ls100 = turf.lineString(ptList100);
 const t2 = require('./' + dataPath + '/T2.json');
 const t2Length = turf.length(t2, { units: 'kilometers' });
 const t2EntryPointIndex = (dataPath == 'tokyo') ? 342 : 3997;
-const beforeT2 = turf.lineString(ls100.geometry.coordinates.slice(0, t2EntryPointIndex + 1));
+const beforeT2 = turf.length(turf.lineString(ls100.geometry.coordinates.slice(0, t2EntryPointIndex + 1)));
 
 // define s3 buckets
 const lastPlayerPositionBucket = 'dev-last-player-position';
@@ -24,7 +24,7 @@ const finalPlayerPositionFile = 'players-locations.json';
 var prePlayerPositionMap = null;
 var curPlayerPositionMap = new Map();
 
-// local test code
+// local test
 const playersRaw = require('./players-location.json');
 
 const main = async (evt) => {
@@ -34,11 +34,18 @@ const main = async (evt) => {
     //     console.log('get data from pss', json);
     //     if (json.result_code == '0') {
 
-    // local test code
-    json = playersRaw;
+    // get playersRaw from s3 dev-last-player-position/players-location.json
+    // let playersRaw = null;
+    // let ret = null;
+    // try {
+    //     ret = await download(lastPlayerPositionBucket, 'players-location.json');
+    //     playersRaw = JSON.parse(ret.Body);
+    //     console.log('players', players);
+    // } catch (err) {
+    //     console.log(err);
+    // }
 
     //get previous players on T2
-    let ret = null;
     try {
         ret = await download(lastPlayerPositionBucket, lastPlayerPositionFile);
         const json = JSON.parse(ret.Body);
@@ -46,9 +53,8 @@ const main = async (evt) => {
     } catch (err) {
         console.log(err);
     }
-    
-    const processed = processPlayers(json);
-    
+
+    const processed = processPlayers(playersRaw);
     try {
         await upload(Object.fromEntries(curPlayerPositionMap), lastPlayerPositionBucket, lastPlayerPositionFile);
     } catch (err) {
@@ -138,24 +144,31 @@ const processPlayers = (playersRaw) => {
     // players who are away from course >= 1000m will not be corrected
     corrected = filtered.map(player => {
         if (player.properties.away < 1) {
-            diff = turf.nearestPointOnLine(ls100, player.geometry.coordinates);
+            const diff = turf.nearestPointOnLine(ls100, player.geometry.coordinates);
+            console.log(diff);
 
             //Add new players if on T2
-            diffT2 = turf.nearestPointOnLine(t2, player.geometry.coordinates);    
+            const diffT2 = turf.nearestPointOnLine(t2, player.geometry.coordinates);
             if (diffT2.properties.dist === 0) {
-                curPlayerPositionMap.set(player.properties.player_id, player);
-            }
-
-            return {
-                "type": "Feature",
-                "properties": {
-                    ...player.properties,
-                    distance: diff.properties.location
-                },
-                "geometry": {
-                    "coordinates": diff.geometry.coordinates,
-                    "type": "Point"
-                }
+                const jsonRet = {
+                    "type": "Feature",
+                    "properties": {
+                        ...player.properties,
+                        distance: beforeT2 + diffT2.properties.location
+                    },
+                    "geometry": player.geometry
+                };
+                curPlayerPositionMap.set(player.properties.player_id, jsonRet);
+                return jsonRet;
+            } else {
+                return {
+                    "type": "Feature",
+                    "properties": {
+                        ...player.properties,
+                        distance: diff.properties.location
+                    },
+                    "geometry": player.geometry
+                };
             }
         }
         return player;
@@ -173,13 +186,17 @@ const processPlayers = (playersRaw) => {
                 return player;
             }
             lastPosition = prePlayerPositionMap.get(player.properties.player_id);
+
             // players'location, who are on the turn-back line
             offsetLocation = turf.nearestPointOnLine(t2, player.geometry.coordinates);
+            console.log('offsetLocation', offsetLocation);
+
             nearLocation = beforeT2 + offsetLocation.properties.location;
             farLocation = beforeT2 + (t2Length - offsetLocation.properties.location);
-
+            console.log(nearLocation, farLocation, lastPosition.properties.distance);
             // see https://docs.google.com/drawings/d/e/2PACX-1vQNEMbJTivqtWgfX8hm6hqAARZR-p53FpZ5Ud5Wktc17_AAMgJ8HCB5M8JdX9HPA5dtbAI9JMzTkLFC/pub?w=960&h=720
-            if (nearLocation >= lastPosition.properties.location) {
+            if (nearLocation > lastPosition.properties.distance) {
+                console.log('nearLocation:', nearLocation);
                 // p3-a
                 return {
                     "type": "Feature",
@@ -187,14 +204,12 @@ const processPlayers = (playersRaw) => {
                         ...player.properties,
                         distance: nearLocation
                     },
-                    "geometry": {
-                        "coordinates": diff.geometry.coordinates,
-                        "type": "Point"
-                    }
+                    "geometry": player.geometry
                 }
             }
 
-            if (farLocation >= lastPosition.properties.location) {
+            if (farLocation >= lastPosition.properties.distance) {
+                console.log('farLocation:', farLocation);
                 // p3-b
                 return {
                     "type": "Feature",
@@ -202,10 +217,7 @@ const processPlayers = (playersRaw) => {
                         ...player.properties,
                         distance: farLocation
                     },
-                    "geometry": {
-                        "coordinates": diff.geometry.coordinates,
-                        "type": "Point"
-                    }
+                    "geometry": player.geometry
                 }
             }
 
@@ -213,10 +225,9 @@ const processPlayers = (playersRaw) => {
             return player;
         })
     }
-
     // use this timestamp to correct location w/ Dummy data
     // will be removed after real data received
-    const serverTime = new Date('2021-08-16 15:27:00+09:00');
+    const serverTime = new Date('2021-08-16 15:21:00+09:00');
 
     const nowString = Date().toLocaleString();
     const nowTS = Date.now();

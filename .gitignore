@@ -1,5 +1,4 @@
 node_modules
 .vscode
 *.zip
-players-location.json
 last-position.json
