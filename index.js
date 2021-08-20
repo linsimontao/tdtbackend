@@ -24,6 +24,8 @@ const finalPlayerPositionFile = 'players-locations.json';
 var prePlayerPositionMap = null;
 var curPlayerPositionMap = new Map();
 
+const tbc = require('./lib/turnback').tbc
+
 // local test
 const playersRaw = require('./players-location.json');
 
@@ -175,56 +177,60 @@ const processPlayers = (playersRaw) => {
     })
 
     // turn-back line correction
-    if (prePlayerPositionMap && prePlayerPositionMap.size > 0) {
-        corrected = corrected.map(player => {
-            // ignore players who are away from turn-back line
-            if (turf.pointToLineDistance(player.geometry.coordinates, t2) > 0) {
-                return player;
-            }
-            // ignore players whos's last point is not recorded
-            if (!prePlayerPositionMap.has(player.properties.player_id)) {
-                return player;
-            }
-            lastPosition = prePlayerPositionMap.get(player.properties.player_id);
+    corrected = tbc(corrected, prePlayerPositionMap, t2, beforeT2, t2Length)
+    // --------------------old version of turnback correction-----------------------
+    // if (prePlayerPositionMap && prePlayerPositionMap.size > 0) {
+    //     corrected = corrected.map(player => {
+    //         // ignore players who are away from turn-back line
+    //         if (turf.pointToLineDistance(player.geometry.coordinates, t2) > 0) {
+    //             return player;
+    //         }
+    //         // ignore players whos's last point is not recorded
+    //         if (!prePlayerPositionMap.has(player.properties.player_id)) {
+    //             return player;
+    //         }
+    //         lastPosition = prePlayerPositionMap.get(player.properties.player_id);
 
-            // players'location, who are on the turn-back line
-            offsetLocation = turf.nearestPointOnLine(t2, player.geometry.coordinates);
-            console.log('offsetLocation', offsetLocation);
+    //         // players'location, who are on the turn-back line
+    //         offsetLocation = turf.nearestPointOnLine(t2, player.geometry.coordinates);
+    //         console.log('offsetLocation', offsetLocation);
 
-            nearLocation = beforeT2 + offsetLocation.properties.location;
-            farLocation = beforeT2 + (t2Length - offsetLocation.properties.location);
-            console.log(nearLocation, farLocation, lastPosition.properties.distance);
-            // see https://docs.google.com/drawings/d/e/2PACX-1vQNEMbJTivqtWgfX8hm6hqAARZR-p53FpZ5Ud5Wktc17_AAMgJ8HCB5M8JdX9HPA5dtbAI9JMzTkLFC/pub?w=960&h=720
-            if (nearLocation > lastPosition.properties.distance) {
-                console.log('nearLocation:', nearLocation);
-                // p3-a
-                return {
-                    "type": "Feature",
-                    "properties": {
-                        ...player.properties,
-                        distance: nearLocation
-                    },
-                    "geometry": player.geometry
-                }
-            }
+    //         nearLocation = beforeT2 + offsetLocation.properties.location;
+    //         farLocation = beforeT2 + (t2Length - offsetLocation.properties.location);
+    //         console.log(nearLocation, farLocation, lastPosition.properties.distance);
+    //         // see https://docs.google.com/drawings/d/e/2PACX-1vQNEMbJTivqtWgfX8hm6hqAARZR-p53FpZ5Ud5Wktc17_AAMgJ8HCB5M8JdX9HPA5dtbAI9JMzTkLFC/pub?w=960&h=720
+    //         if (nearLocation > lastPosition.properties.distance) {
+    //             console.log('nearLocation:', nearLocation);
+    //             // p3-a
+    //             return {
+    //                 "type": "Feature",
+    //                 "properties": {
+    //                     ...player.properties,
+    //                     distance: nearLocation
+    //                 },
+    //                 "geometry": player.geometry
+    //             }
+    //         }
 
-            if (farLocation >= lastPosition.properties.distance) {
-                console.log('farLocation:', farLocation);
-                // p3-b
-                return {
-                    "type": "Feature",
-                    "properties": {
-                        ...player.properties,
-                        distance: farLocation
-                    },
-                    "geometry": player.geometry
-                }
-            }
+    //         if (farLocation >= lastPosition.properties.distance) {
+    //             console.log('farLocation:', farLocation);
+    //             // p3-b
+    //             return {
+    //                 "type": "Feature",
+    //                 "properties": {
+    //                     ...player.properties,
+    //                     distance: farLocation
+    //                 },
+    //                 "geometry": player.geometry
+    //             }
+    //         }
 
-            // p3-c, should be ignored
-            return player;
-        })
-    }
+    //         // p3-c, should be ignored
+    //         return player;
+    //     })
+    // }
+    // --------------------old version of turnback correction-----------------------
+
     // use this timestamp to correct location w/ Dummy data
     // will be removed after real data received
     const serverTime = new Date('2021-08-16 15:21:00+09:00');

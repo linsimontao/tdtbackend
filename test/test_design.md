@@ -35,4 +35,4 @@ TL; DW
 |   6	|   near t2[10]	|   t2[0]	|   p3-a	|   todo	|
 |   7	|   near t2[10]	|   t2[50]	|   p3-b	|   todo	|
 
-Where, $5, 6, 7$ are defined in a fuzzy scale to $t2$. --> WIP
+Where, $5, 6, 7$ are defined in a fuzzy scale to $t2$. --> see `test/turnback.test.jp`

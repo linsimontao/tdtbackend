@@ -4,13 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node -e \"(async () => console.log(await require('./index').handler({'num1':5, 'num2':10})))();\""
+    "test": "node -e \"(async () => console.log(await require('./index').handler({'num1':5, 'num2':10})))();\"",
+    "unit-test": "node test/turnback.test.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@turf/turf": "^6.5.0",
     "aws-sdk": "^2.966.0",
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^2.6.1",
+    "tape": "^5.3.1"
   }
 }
