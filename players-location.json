@@ -1,19 +1,16 @@
-{
-    "result_code": "0",
-    "result_detail": [
-        {
-            "player_id": "001047995456",
-            "latlong": {
-                "x": 35.677633,
-                "y": 139.752367
-            },
-            "heading": "100.1",
-            "speed": "7.5",
-            "latlong_update_date": "2021-08-16 15:20:49",
-            "player_cycling_route": {
-                "cycling_route_id": 1,
-                "player_number": "8226"
-            }
+[
+    {
+        "player_id": "001047995456",
+        "latlong": {
+            "x": 35.677633,
+            "y": 139.752367
+        },
+        "heading": "100.1",
+        "speed": "7.5",
+        "latlong_update_date": "2021-08-20 19:41:49",
+        "player_cycling_route": {
+            "cycling_route_id": 1,
+            "player_number": "8226"
         }
-    ]
-}
+    }
+]
